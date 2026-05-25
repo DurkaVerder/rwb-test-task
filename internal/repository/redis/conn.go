@@ -1,13 +1,19 @@
 package redis
 
-import redis "github.com/go-redis/redis/v8"
+import (
+	"sync"
 
-type Redis struct {
-	client *redis.Client
+	redis "github.com/go-redis/redis/v8"
+)
+
+type RedisRepository struct {
+	client      *redis.Client
+	cleanupMu   sync.Mutex
+	lastCleanup int64
 }
 
-func NewRedis(addr, password string) *Redis {
-	return &Redis{
+func NewRedisRepository(addr, password string) *RedisRepository {
+	return &RedisRepository{
 		client: redis.NewClient(&redis.Options{
 			Addr:     addr,
 			Password: password,

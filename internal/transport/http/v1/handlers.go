@@ -1,14 +1,17 @@
 package v1
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/DurkaVerder/rwb-test-task/internal/metrics"
 	"github.com/gin-gonic/gin"
 )
 
 type Service interface {
-	TopNRequests(n int) ([]string, error)
+	TopNQueries(ctx context.Context, n int) ([]string, error)
 }
 
 type Handlers struct {
@@ -25,24 +28,33 @@ func NewHandlers(s Service) *Handlers {
 	}
 }
 
-func (h *Handlers) GetTopNRequests(ctx *gin.Context) {
-	n := ctx.Query("n")
-	if n == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Query parameter 'n' is required"})
+func (h *Handlers) GetTopNQueries(ctx *gin.Context) {
+	start := time.Now()
+	status := http.StatusOK
+	defer func() {
+		metrics.ObserveTopRequests(time.Since(start), status)
+	}()
+
+	nRaw := ctx.Query("n")
+	if nRaw == "" {
+		status = http.StatusBadRequest
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "missing n query parameter"})
 		return
 	}
 
-	nInt, err := strconv.Atoi(n)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Query parameter 'n' must be a valid integer"})
+	n, err := strconv.Atoi(nRaw)
+	if err != nil || n <= 0 {
+		status = http.StatusBadRequest
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "n must be a positive integer"})
 		return
 	}
 
-	requests, err := h.Service.TopNRequests(nInt)
+	queries, err := h.Service.TopNQueries(ctx.Request.Context(), n)
 	if err != nil {
+		status = http.StatusInternalServerError
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, TopNResponse{Requests: requests})
+	ctx.JSON(http.StatusOK, TopNResponse{Requests: queries})
 }
