@@ -39,17 +39,17 @@ redis.call('ZREM', bucketsKey, bucketKey)
 return 1
 `)
 
-func (r *Redis) GetTopNRequests(n int) ([]string, error) {
+func (r *RedisRepository) GetTopNQueries(ctx context.Context, n int) ([]string, error) {
+	ctx = ensureContext(ctx)
 	if n <= 0 {
 		return nil, errors.New("n must be positive")
 	}
 
 	now := time.Now().Unix()
-	if err := r.cleanupExpired(now); err != nil {
+	if err := r.cleanupExpired(ctx, now); err != nil {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	requests, err := r.client.ZRevRange(ctx, countsKey, 0, int64(n-1)).Result()
 	if err != nil {
 		return nil, err
@@ -57,28 +57,44 @@ func (r *Redis) GetTopNRequests(n int) ([]string, error) {
 	return requests, nil
 }
 
-func (r *Redis) AddRequest(request string) error {
-	if request == "" {
-		return errors.New("request is empty")
+func (r *RedisRepository) AddQuery(ctx context.Context, query string, at time.Time) error {
+	ctx = ensureContext(ctx)
+	if query == "" {
+		return errors.New("query is empty")
 	}
 
-	now := time.Now().Unix()
-	if err := r.cleanupExpired(now); err != nil {
+	now := time.Now()
+	if at.IsZero() {
+		at = now
+	}
+
+	nowUnix := now.Unix()
+	if at.Unix() < nowUnix-windowSeconds {
+		return nil
+	}
+
+	if err := r.cleanupExpired(ctx, nowUnix); err != nil {
 		return err
 	}
 
-	bucketKey := fmt.Sprintf("%s%d", bucketPrefix, now)
-	ctx := context.Background()
+	bucketUnix := at.Unix()
+	expirationAt := time.Unix(bucketUnix+bucketTTLSeconds, 0)
+	ttl := time.Until(expirationAt)
+	if ttl <= 0 {
+		return nil
+	}
+
+	bucketKey := fmt.Sprintf("%s%d", bucketPrefix, bucketUnix)
 	pipe := r.client.Pipeline()
-	pipe.HIncrBy(ctx, bucketKey, request, 1)
-	pipe.Expire(ctx, bucketKey, time.Second*time.Duration(bucketTTLSeconds))
-	pipe.ZIncrBy(ctx, countsKey, 1, request)
-	pipe.ZAdd(ctx, bucketsKey, &redis.Z{Score: float64(now), Member: bucketKey})
+	pipe.HIncrBy(ctx, bucketKey, query, 1)
+	pipe.Expire(ctx, bucketKey, ttl)
+	pipe.ZIncrBy(ctx, countsKey, 1, query)
+	pipe.ZAdd(ctx, bucketsKey, &redis.Z{Score: float64(bucketUnix), Member: bucketKey})
 	_, err := pipe.Exec(ctx)
 	return err
 }
 
-func (r *Redis) cleanupExpired(now int64) error {
+func (r *RedisRepository) cleanupExpired(ctx context.Context, now int64) error {
 	r.cleanupMu.Lock()
 	defer r.cleanupMu.Unlock()
 
@@ -87,7 +103,6 @@ func (r *Redis) cleanupExpired(now int64) error {
 	}
 
 	cutoff := now - windowSeconds
-	ctx := context.Background()
 	buckets, err := r.client.ZRangeByScore(ctx, bucketsKey, &redis.ZRangeBy{
 		Min: "-inf",
 		Max: strconv.FormatInt(cutoff, 10),
@@ -104,4 +119,11 @@ func (r *Redis) cleanupExpired(now int64) error {
 
 	r.lastCleanup = now
 	return nil
+}
+
+func ensureContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }

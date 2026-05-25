@@ -1,30 +1,35 @@
 package service
 
+import (
+	"context"
+	"time"
+)
+
 type Repository interface {
-	GetTopNRequests(n int) ([]string, error)
-	AddRequest(request string) error
+	GetTopNQueries(ctx context.Context, n int) ([]string, error)
+	AddQuery(ctx context.Context, query string, at time.Time) error
 }
 
 type Service struct {
-	Repo Repository
+	repo Repository
 }
 
 func NewService(repo Repository) *Service {
 	return &Service{
-		Repo: repo,
+		repo: repo,
 	}
 }
 
-func (s *Service) TopNRequests(n int) ([]string, error) {
-	requests, err := s.Repo.GetTopNRequests(n)
+func (s *Service) TopNQueries(ctx context.Context, n int) ([]string, error) {
+	queries, err := s.repo.GetTopNQueries(ctx, n)
 	if err != nil {
 		return nil, err
 	}
-	return requests, nil
+	return queries, nil
 }
 
-func (s *Service) AddRequest(request string) error {
-	if err := s.Repo.AddRequest(request); err != nil {
+func (s *Service) AddQuery(ctx context.Context, query string, at time.Time) error {
+	if err := s.repo.AddQuery(ctx, query, at); err != nil {
 		return err
 	}
 	return nil

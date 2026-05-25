@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -8,7 +9,7 @@ import (
 )
 
 type Service interface {
-	TopNRequests(n int) ([]string, error)
+	TopNQueries(ctx context.Context, n int) ([]string, error)
 }
 
 type Handlers struct {
@@ -25,7 +26,7 @@ func NewHandlers(s Service) *Handlers {
 	}
 }
 
-func (h *Handlers) GetTopNRequests(ctx *gin.Context) {
+func (h *Handlers) GetTopNQueries(ctx *gin.Context) {
 	nRaw := ctx.Query("n")
 	if nRaw == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "missing n query parameter"})
@@ -38,11 +39,11 @@ func (h *Handlers) GetTopNRequests(ctx *gin.Context) {
 		return
 	}
 
-	requests, err := h.Service.TopNRequests(n)
+	queries, err := h.Service.TopNQueries(ctx.Request.Context(), n)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, TopNResponse{Requests: requests})
+	ctx.JSON(http.StatusOK, TopNResponse{Requests: queries})
 }

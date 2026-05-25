@@ -1,14 +1,16 @@
 package kafka
 
 import (
+	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/IBM/sarama"
 )
 
 type Service interface {
-	AddRequest(request string) error
+	AddQuery(ctx context.Context, query string, at time.Time) error
 }
 
 type Message struct {
@@ -42,8 +44,18 @@ func (c *Consumer) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.C
 			continue
 		}
 
-		if err := c.service.AddRequest(message.Request); err != nil {
-			c.logger.Printf("Error adding request to service: %v", err)
+		eventTime := msg.Timestamp
+		if eventTime.IsZero() {
+			eventTime = time.Now()
+		}
+
+		consumeCtx := sess.Context()
+		if consumeCtx == nil {
+			consumeCtx = context.Background()
+		}
+
+		if err := c.service.AddQuery(consumeCtx, message.Request, eventTime); err != nil {
+			c.logger.Printf("Error adding query to service: %v", err)
 			continue
 		}
 
