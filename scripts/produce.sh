@@ -6,16 +6,16 @@ DURATION="${DURATION:-60}" # seconds
 TOPIC="${TOPIC:-search-requests}"
 
 QUERIES=(
-  "iphone"
-  "macbook"
-  "airpods"
-  "gaming laptop"
-  "mechanical keyboard"
-  "wireless mouse"
-  "monitor 27"
-  "ssd 1tb"
-  "headphones"
-  "smartphone"
+  "Ноутбук для учебы"
+  "Купить ноутбук"
+  "Летняя обувь"
+  "Летняя одежда"
+  "Гантели"
+  "Игровой ноутбук"
+  "Мышь для ноутбука"
+  "Клавиатура для ноутбука"
+  "Компьютерные аксессуары"
+  "Смарт-часы для фитнеса"
 )
 
 interval=$(awk -v rate="$RATE" 'BEGIN { if (rate<=0) rate=1; printf "%.6f", 1/rate }')

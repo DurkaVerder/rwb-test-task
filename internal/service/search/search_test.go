@@ -1,4 +1,4 @@
-package service
+package search
 
 import (
 	"context"
@@ -30,9 +30,9 @@ func (m *mockRepo) AddQuery(ctx context.Context, query string, at time.Time) err
 	return m.err
 }
 
-func TestServiceTopNQueries(t *testing.T) {
+func TestSearchServiceTopNQueries(t *testing.T) {
 	repo := &mockRepo{queries: []string{"alpha", "beta"}}
-	svc := NewService(repo)
+	svc := NewSearchService(repo)
 
 	ctx := context.Background()
 	result, err := svc.TopNQueries(ctx, 2)
@@ -50,9 +50,9 @@ func TestServiceTopNQueries(t *testing.T) {
 	}
 }
 
-func TestServiceTopNQueriesError(t *testing.T) {
+func TestSearchServiceTopNQueriesError(t *testing.T) {
 	repo := &mockRepo{err: errors.New("boom")}
-	svc := NewService(repo)
+	svc := NewSearchService(repo)
 
 	_, err := svc.TopNQueries(context.Background(), 1)
 	if err == nil {
@@ -60,9 +60,9 @@ func TestServiceTopNQueriesError(t *testing.T) {
 	}
 }
 
-func TestServiceAddQuery(t *testing.T) {
+func TestSearchServiceAddQuery(t *testing.T) {
 	repo := &mockRepo{}
-	svc := NewService(repo)
+	svc := NewSearchService(repo)
 
 	at := time.Unix(123, 0)
 	ctx := context.Background()

@@ -1,4 +1,4 @@
-package service
+package search
 
 import (
 	"context"
@@ -10,17 +10,17 @@ type Repository interface {
 	AddQuery(ctx context.Context, query string, at time.Time) error
 }
 
-type Service struct {
+type SearchService struct {
 	repo Repository
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{
+func NewSearchService(repo Repository) *SearchService {
+	return &SearchService{
 		repo: repo,
 	}
 }
 
-func (s *Service) TopNQueries(ctx context.Context, n int) ([]string, error) {
+func (s *SearchService) TopNQueries(ctx context.Context, n int) ([]string, error) {
 	queries, err := s.repo.GetTopNQueries(ctx, n)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func (s *Service) TopNQueries(ctx context.Context, n int) ([]string, error) {
 	return queries, nil
 }
 
-func (s *Service) AddQuery(ctx context.Context, query string, at time.Time) error {
+func (s *SearchService) AddQuery(ctx context.Context, query string, at time.Time) error {
 	if err := s.repo.AddQuery(ctx, query, at); err != nil {
 		return err
 	}

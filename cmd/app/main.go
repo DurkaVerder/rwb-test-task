@@ -13,10 +13,12 @@ import (
 
 	"github.com/DurkaVerder/rwb-test-task/internal/broker/kafka"
 	"github.com/DurkaVerder/rwb-test-task/internal/repository/redis"
-	"github.com/DurkaVerder/rwb-test-task/internal/service"
+	service "github.com/DurkaVerder/rwb-test-task/internal/service/search"
+	stoplistService "github.com/DurkaVerder/rwb-test-task/internal/service/stoplist"
 	v1 "github.com/DurkaVerder/rwb-test-task/internal/transport/http/v1"
 	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Config struct {
@@ -39,11 +41,13 @@ func main() {
 
 	redisRepository := redis.NewRedisRepository(cfg.RedisAddr, cfg.RedisPassword)
 
-	service := service.NewService(redisRepository)
+	searchService := service.NewSearchService(redisRepository)
+	stopListService := stoplistService.NewStopListService(redisRepository)
 
-	consumer := kafka.NewConsumer(logger, service)
+	consumer := kafka.NewConsumer(logger, searchService)
 
-	handlers := v1.NewHandlers(service)
+	handlers := v1.NewHandlers(searchService)
+	stopListHandlers := v1.NewStopListHandlers(stopListService)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -68,6 +72,10 @@ func main() {
 	router := gin.Default()
 	v1Group := router.Group("/api/v1")
 	v1Group.GET("/top-requests", handlers.GetTopNQueries)
+	v1Group.GET("/stoplist", stopListHandlers.GetStopList)
+	v1Group.POST("/stoplist", stopListHandlers.AddStopWord)
+	v1Group.DELETE("/stoplist", stopListHandlers.RemoveStopWord)
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	server := &http.Server{
 		Addr:    cfg.HTTPAddr,

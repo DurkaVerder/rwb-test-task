@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/DurkaVerder/rwb-test-task/internal/metrics"
 	"github.com/IBM/sarama"
 )
 
@@ -40,6 +41,7 @@ func (c *Consumer) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.C
 	for msg := range claim.Messages() {
 		var message Message
 		if err := json.Unmarshal(msg.Value, &message); err != nil {
+			metrics.IncQueryIngestError()
 			c.logger.Printf("Error unmarshaling message: %v", err)
 			continue
 		}
@@ -55,9 +57,11 @@ func (c *Consumer) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.C
 		}
 
 		if err := c.service.AddQuery(consumeCtx, message.Request, eventTime); err != nil {
+			metrics.IncQueryIngestError()
 			c.logger.Printf("Error adding query to service: %v", err)
 			continue
 		}
+		metrics.IncQueryIngested()
 
 		sess.MarkMessage(msg, "")
 	}
